@@ -11,5 +11,5 @@ module.exports = function (config) {
             Promise.map(data, x => updateUser(x), { concurrency: 1 });
             return data;
         })
-        .then(data => setData(config("S3_KEY_OLD", data)));
+        .then(data => setData(config("S3_KEY_OLD"), data));
 };

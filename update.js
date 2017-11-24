@@ -30,7 +30,7 @@ module.exports = function (config) {
       }
 
     function isNewOrChanged(a, oldDataMap) {
-        const b = oldDataMap[item._id];
+        const b = oldDataMap[a._id];
 
         return !(b
             && arraysEqual(a.authz.groups, b.authz.groups)
@@ -47,10 +47,13 @@ module.exports = function (config) {
             const oldDataMap = arrayToMap(oldData);
 
             const deleted = oldData.filter(i => !newDataMap[i._id]);
-            const changed = newData.filter(i => isNewOrChanged(i));
+            const changed = newData.filter(i => isNewOrChanged(i, oldDataMap));
+
+            console.log("Deleted: " + deleted.length);
+            console.log("Changed: " + changed.length);
 
             return Promise.map(deleted, x => updateUser({ _id: x._id, authz: null }), { concurrency: 1 })
                 .then(() => Promise.map(changed, x => updateUser(x), { concurrency: 1 }))
-                .then(data => setData(config("S3_KEY_OLD", data)));
+                .then(() => setData(config("S3_KEY_OLD"), newData));
         })
 }
