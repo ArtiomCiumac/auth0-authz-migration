@@ -1,0 +1,18 @@
+{
+  "name": "auth0-migrate-authz",
+  "version": "1.0.0",
+  "description": "Script to migrate Authz extension data to users app_metadata",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "auth0": "^2.8.0",
+    "auth0-extension-tools": "^1.2.1",
+    "aws-sdk": "^2.5.3",
+    "bluebird": "^3.5.1",
+    "dotenv": "^4.0.0"
+  }
+}
