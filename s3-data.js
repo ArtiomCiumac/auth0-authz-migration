@@ -15,12 +15,26 @@ module.exports = function dataFactory(config) {
             };
         
             return new Promise((resolve, reject) => {
-                s3.getObject(params, function(err, data) {
+                    s3.getObject(params, function(err, data) {
+                        if (err) return reject(err);
+                        return resolve(data);
+                    });
+                })
+                .then(result =>  JSON.parse(result.Body.toString()));
+        },
+        setData: function setData(key, data) {
+            const params = {
+                Bucket: config("S3_BUCKET"), 
+                Key: key,
+                Body: JSON.stringify(data)
+            };
+
+            return new Promise((resolve, reject) => {
+                s3.putObject(params, function(err, data) {
                     if (err) return reject(err);
                     return resolve(data);
                 });
-                })
-                .then(result =>  JSON.parse(result.Body.toString()));
+            })
         }
     };
 }
