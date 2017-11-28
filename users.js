@@ -15,16 +15,7 @@ module.exports = function factory(config) {
             const query = { id: user._id };
             if (/^fake/i.test(user._id)) return;
             
-            return throttle(() => management.users.get(query))
-                .then(u => {
-                    const appMetadata = u.app_metadata || {};
-
-                    // TODO: check what to do with null property
-                    appMetadata.authz = user.authz;
-
-                    return appMetadata;
-                })
-                .then(appMetadata => throttle(() => management.users.updateAppMetadata(query, appMetadata)))
+            return throttle(() => management.users.updateAppMetadata(query, user.authz))
                 .catch(err => {
                     // silently skip HTTP 404 errors that happen for fake users
                     if (err.statusCode != 404) {
