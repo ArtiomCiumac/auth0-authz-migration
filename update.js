@@ -1,27 +1,24 @@
 module.exports = function (config) {
     const Promise = require("bluebird");
-    Promise.setScheduler((fn) => {
-        setTimeout(fn, 1);
-    });
-    
+
     const { getData, setData } = require("./s3-data")(config);
-    const transform = require("./data-transform");
+    const { transform2 } = require("./data-transform");
     const { updateUser } = require("./users")(config);
-    const { arrayToMap, mapToArray, batchFilter } = require("./arrayUtils");    
+    const { arrayToMap, mapToArray, batchFilter } = require("./arrayUtils");
 
     function arraysEqual(a, b) {
         if (a === b) return true;
         if (a == null || b == null) return false;
         if (a.length != b.length) return false;
-      
+
         a.sort();
         b.sort();
-      
+
         for (var i = 0; i < a.length; ++i) {
-          if (a[i] !== b[i]) return false;
+            if (a[i] !== b[i]) return false;
         }
         return true;
-      }
+    }
 
     function isNewOrChanged(a, oldDataMap) {
         const b = oldDataMap[a._id];
@@ -34,7 +31,7 @@ module.exports = function (config) {
 
     function processDeletedUsers(data) {
         console.log("Update: processing deleted users...");
-        
+
         return Promise.resolve(data.newDataTransformed)
             .then(x => arrayToMap(x))
             .then(x => batchFilter(data.oldDataTransformed, i => !x[i._id]))
@@ -52,41 +49,64 @@ module.exports = function (config) {
             .then(x => x.length)
     }
 
+    const run = cb => {
+        return new Promise((resolve, reject) => process.nextTick(() => resolve(cb())))
+    }
+
     return Promise.resolve()
         .then(() => {
-            const result = [];
+            return run(() => {
+                const context = {};
 
-            return getData(config("S3_KEY_NEW"))
-                .then(x => result.push(x))
-                .then(() => getData(config("S3_KEY_OLD")))
-                .then(x => result.push(x))
-                .then(() => result);
+                return getData(config("S3_KEY_NEW"))
+                    .then(x => context.newDataOriginal = x)
+                    .then(() => getData(config("S3_KEY_OLD")))
+                    .then(x => context.oldDataOriginal = x)
+                    .then(() => context);
+            });
         })
-        .then(data => {
-            console.log("Update: transforming data to users arrays...");
+        .then(context => {
+            return run(() => {
+                console.log("Preparing new data set.");
+                return transform2(context.newDataOriginal)
+                    .then(r => {
+                        context.newDataTransformed = r;
+                        return context;
+                    });
+            });
+        })
+        .then(context => {
+            return run(() => {
+                console.log("Preparing old data set.");
+                return transform2(context.oldDataOriginal)
+                    .then(r => {
+                        context.oldDataTransformed = r;
+                        return context;
+                    });
+            });
+        })
+        .then(context => {
+            return run(() => {
+                context.resultReport = {};
 
-            // HACK: process the data in separate event loops, otherwise
-            // the node's event loop gets blocked and the webtask is killed.
-            return Promise.map(data, x => transform(x), {concurrency: 1})
-                .then(r => {
-                    console.log("Update: data transformation complete.");
-                    
-                    return {
-                        newDataOriginal: data[0],
-                        newDataTransformed: r[0],
-                        oldDataTransformed: r[1]
-                    }
-                })
+                return processDeletedUsers(context)
+                    .then(deletedCount => context.resultReport.deletedUsers = deletedCount)
+                    .then(() => context);
+            });
         })
-        .then(data => {
-            const resultReport = {};
-
-            return processDeletedUsers(data)
-                .then(deletedCount => resultReport.deletedUsers = deletedCount)
-                .then(() => processUpdatedUsers(data))
-                .then(updatedCount => resultReport.updatedUsers = updatedCount)
-                .then(() => setData(config("S3_KEY_OLD"), data.newDataOriginal))
-                .then(() => resultReport.totalUsers = data.newDataTransformed.length)
-                .then(() => resultReport)
+        .then(context => {
+            return run(() => {
+                return processUpdatedUsers(context)
+                    .then(updatedCount => context.resultReport.updatedUsers = updatedCount)
+                    .then(() => context);
+            });
         })
+        .then(context => {
+            return run(() => {
+                return setData(config("S3_KEY_OLD"), context.newDataOriginal)
+                    .then(() => context.resultReport.totalUsers = context.newDataTransformed.length)
+                    .then(() => context);
+            });
+        })
+        .then(context => context.resultReport);
 }

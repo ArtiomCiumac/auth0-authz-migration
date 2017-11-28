@@ -21,6 +21,8 @@ function mapToArray(dictionary, itemTransformCallback) {
 }
 
 function batchRun(arr, cb, batchSize) {
+    if (!arr || arr.length === 0) return;
+
     const maxBatchSize = batchSize || 30000.0;
     const promises = [];
 
@@ -44,8 +46,7 @@ function batchFilter(arr, cb) {
 
     return batchRun(arr, batch => {
             batch.filter(x => cb(x)).forEach(x => result.push(x));
-        }, 1000)
-        .then(() => result);
+        }, 1000).then(() => result);
 }
 
 module.exports = {
