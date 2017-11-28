@@ -69,6 +69,7 @@ performed or skipped as necessary.
    - Configure the non-interactive API client in the Auth0 tenant.
    - Obtain the required parameters of the AWS S3 storage bucket (see below).
    - Clone or download the project.
+   - Run `npm install` to download all package dependencies.
    - In the project root createa file named `.env` with the following contents:
      ```
      S3_BUCKET=<AWS S3 bucket name to read and store the data, for exampple test-dev-authz>
