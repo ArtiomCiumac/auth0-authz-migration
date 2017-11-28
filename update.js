@@ -2,9 +2,9 @@ module.exports = function (config) {
     const Promise = require("bluebird");
 
     const { getData, setData } = require("./s3-data")(config);
-    const { transform2 } = require("./data-transform");
+    const { transform } = require("./data-transform");
     const { updateUser } = require("./users")(config);
-    const { arrayToMap, mapToArray, batchFilter } = require("./arrayUtils");
+    const { arrayToMap, batchFilter, run } = require("./utils");
 
     function arraysEqual(a, b) {
         if (a === b) return true;
@@ -49,64 +49,38 @@ module.exports = function (config) {
             .then(x => x.length)
     }
 
-    const run = cb => {
-        return new Promise((resolve, reject) => process.nextTick(() => resolve(cb())))
-    }
-
-    return Promise.resolve()
-        .then(() => {
-            return run(() => {
-                const context = {};
-
+    return Promise.resolve({ resultReport: {} })
+        .then(context => run(() => {
                 return getData(config("S3_KEY_NEW"))
                     .then(x => context.newDataOriginal = x)
                     .then(() => getData(config("S3_KEY_OLD")))
                     .then(x => context.oldDataOriginal = x)
                     .then(() => context);
-            });
-        })
-        .then(context => {
-            return run(() => {
+            }))
+        .then(context => run(() => {
                 console.log("Preparing new data set.");
-                return transform2(context.newDataOriginal)
+                return transform(context.newDataOriginal)
                     .then(r => {
                         context.newDataTransformed = r;
                         return context;
                     });
-            });
-        })
-        .then(context => {
-            return run(() => {
+        }))
+        .then(context => run(() => {
                 console.log("Preparing old data set.");
-                return transform2(context.oldDataOriginal)
+                return transform(context.oldDataOriginal)
                     .then(r => {
                         context.oldDataTransformed = r;
                         return context;
                     });
-            });
-        })
-        .then(context => {
-            return run(() => {
-                context.resultReport = {};
-
-                return processDeletedUsers(context)
-                    .then(deletedCount => context.resultReport.deletedUsers = deletedCount)
-                    .then(() => context);
-            });
-        })
-        .then(context => {
-            return run(() => {
-                return processUpdatedUsers(context)
-                    .then(updatedCount => context.resultReport.updatedUsers = updatedCount)
-                    .then(() => context);
-            });
-        })
-        .then(context => {
-            return run(() => {
-                return setData(config("S3_KEY_OLD"), context.newDataOriginal)
-                    .then(() => context.resultReport.totalUsers = context.newDataTransformed.length)
-                    .then(() => context);
-            });
-        })
+        }))
+        .then(context => run(() => processDeletedUsers(context)
+            .then(deletedCount => context.resultReport.deletedUsers = deletedCount)
+            .then(() => context)))
+        .then(context => run(() => processUpdatedUsers(context)
+            .then(updatedCount => context.resultReport.updatedUsers = updatedCount)
+            .then(() => context)))
+        .then(context => run(() => setData(config("S3_KEY_OLD"), context.newDataOriginal)
+            .then(() => context.resultReport.totalUsers = context.newDataTransformed.length)
+            .then(() => context)))
         .then(context => context.resultReport);
 }

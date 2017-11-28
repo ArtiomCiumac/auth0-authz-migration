@@ -1,5 +1,9 @@
 const Promise = require("bluebird");
 
+function run(cb) {
+    return new Promise((resolve, reject) => process.nextTick(() => resolve(cb())))
+}
+
 function arrayToMap(arr) {
     const result = {};
 
@@ -49,9 +53,45 @@ function batchFilter(arr, cb) {
         }, 1000).then(() => result);
 }
 
+function runEach(arr, cb) {
+    var promise = Promise.resolve();
+
+    arr.forEach(x => {
+        promise = promise.then(() => run(() => cb(x)));
+    })
+
+    return promise;
+}
+
+function batch (arr, cb) {
+    if (!arr || arr.length === 0) { return Promise.resolve(); }
+
+    const batchSize = 1000;
+
+    const batches = Math.ceil(arr.length / batchSize);
+
+    var runBatch = null;
+    var i = 0;
+
+    var promise = Promise.resolve();
+
+    const scheduleBatch = i => promise
+        .then(() => arr.slice(i * batchSize, (i + 1) * batchSize))
+        .then(x => run(() => x.forEach(item => cb(item))));
+
+    for(var i = 0; i < batches; i++) {
+        promise = scheduleBatch(i);
+    }
+
+    return promise;
+}
+
 module.exports = {
     arrayToMap,
     mapToArray,
     batchRun,
-    batchFilter
+    batchFilter,
+    run,
+    runEach,
+    batch,
 };
