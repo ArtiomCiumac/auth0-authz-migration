@@ -4,7 +4,10 @@
   "description": "Script to migrate Authz extension data to users app_metadata",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "migrate-local": "node migrate-local.js",
+    "update-local": "node update-local.js",
+    "cron-create": "wt cron create --schedule 1m --secrets .env --name authz-migration --bundle update-webtask.js",
+    "cron-update": "wt cron update --bundle authz-migration update-webtask.js"
   },
   "author": "",
   "license": "ISC",

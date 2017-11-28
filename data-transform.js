@@ -1,4 +1,9 @@
-const { arrayToMap, mapToArray } = require("./arrayUtils");
+const Promise = require("bluebird");
+Promise.setScheduler((fn) => {
+    setTimeout(fn, 1);
+});
+
+const { arrayToMap, mapToArray, batchRun } = require("./arrayUtils");
 
 function transformPermission(permission) {
     return permission.name;
@@ -19,13 +24,17 @@ function addPermission(user, permission) {
 function addRole(user, role, permissionsGetter) {
     user.roles[role._id] = transformRole(role);
 
-    role.permissions.forEach(id => addPermission(user, permissionsGetter(id)));
+    if (role.permissions) {
+        role.permissions.forEach(id => addPermission(user, permissionsGetter(id)));
+    }
 }
 
 function addGroup(user, group, roleGetter, permissionGetter) {
     user.groups[group._id] = transformGroup(group);
 
-    group.roles.forEach(id => addRole(user, roleGetter(id), permissionGetter));
+    if (group.roles) {
+        group.roles.forEach(id => addRole(user, roleGetter(id), permissionGetter));
+    }
 }
 
 function getOrCreateUser(users, id) {
@@ -46,35 +55,70 @@ function getOrCreateUser(users, id) {
 }
 
 module.exports = function transform(data) {
-    const permissions = arrayToMap(data.permissions);
-    const roles = arrayToMap(data.roles);
-    
-    const users = {};
+    return arrayToMap(data.permissions)
+        .then(permissions => {
+        const users = {};
 
-    data.groups.forEach(group => {
-        group.members.forEach(userId => {
-            const user = getOrCreateUser(users, userId);
+        return Promise.resolve()
+            .then(() => {
+                if (data.groups) {
+                    console.log("Transform: groups.");
 
-            addGroup(user, group, id => roles[id], id => permissions[id]);
-        });
-    });
+                    return arrayToMap(data.roles).then(roles => {
+                        return Promise.map(data.groups, group => {
+                            if (group.members) {
+                                console.log("Group with " + group.members.length + " members.")
 
-    data.roles.forEach(role => {
-        role.users.forEach(userId => {
-            const user = getOrCreateUser(users, userId);
+                                return batchRun(group.members, batch => {
+                                    batch.forEach(userId => {
+                                        const user = getOrCreateUser(users, userId);
+            
+                                        addGroup(user, group, id => roles[id], id => permissions[id]);
+                                    });
+                                }, 10000);
+                            }
+                        });
+                    });
+                }
+            })
+            .then(() => {
+                if (data.roles) {
+                    console.log("Transform: roles.");
 
-            addRole(user, role, id => permissions[id]);
-        });
-    });
+                    return Promise.map(data.roles, role => {
+                        if (role.users) {
 
-    return mapToArray(users, u => {
-        return {
-            _id: u._id,
-            authz: {
-                groups: mapToArray(u.groups),
-                roles: mapToArray(u.roles),
-                permissions: mapToArray(u.permissions)
-            }
-        };
+                            return batchRun(role.users, batch => {
+                                batch.forEach(userId => {
+                                    const user = getOrCreateUser(users, userId);
+        
+                                    addRole(user, role, id => permissions[id]);
+                                });
+                            }, 10000);
+                        }
+                    });
+                }
+            })
+            .then(() => {
+                console.log("Transform: assembling users array.");
+
+                const result = [];
+
+                return batchRun(Object.keys(users), batch => {
+                        batch.forEach(k => {
+                            const u = users[k];
+                            
+                            result.push({
+                                _id: u._id,
+                                authz: {
+                                    groups: mapToArray(u.groups),
+                                    roles: mapToArray(u.roles),
+                                    permissions: mapToArray(u.permissions)
+                                }
+                            });
+                        })
+                    }, 500)
+                    .then(() => result);
+            });
     });
 }

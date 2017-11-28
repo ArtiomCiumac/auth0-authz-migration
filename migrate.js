@@ -6,10 +6,8 @@ module.exports = function (config) {
     const { updateUser } = require("./users")(config);    
 
     return getData(config("S3_KEY_NEW"))
-        .then(data => transform(data))
-        .then(data => {
-            Promise.map(data, x => updateUser(x), { concurrency: 1 });
-            return data;
-        })
-        .then(data => setData(config("S3_KEY_OLD"), data));
+        .then(data => Promise.resolve(transform(data))
+            .then(transformedData => Promise.map(transformedData, x => updateUser(x), { concurrency: 1 }))
+            .then(() => setData(config("S3_KEY_OLD"), data))
+        );
 };

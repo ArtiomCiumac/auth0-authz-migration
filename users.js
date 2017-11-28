@@ -23,7 +23,13 @@ module.exports = function factory(config) {
 
                     return appMetadata;
                 })
-                .then(appMetadata => throttle(() => management.users.updateAppMetadata(query, appMetadata)));
+                .then(appMetadata => throttle(() => management.users.updateAppMetadata(query, appMetadata)))
+                .catch(err => {
+                    // silently skip HTTP 404 errors that happen for fake users
+                    if (err.statusCode != 404) {
+                        throw new Error(err);
+                    }
+                });
                 
         },
     }
