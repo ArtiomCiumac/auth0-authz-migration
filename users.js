@@ -12,9 +12,10 @@ module.exports = function factory(config) {
 
     return {
         updateUser: function updateUser(user) {
-            const query = { id: user._id };
-            if (/^fake/i.test(user._id)) return;
+            if (!user._id || !user._id.length || user._id === "undefined" || /^fake/i.test(user._id)) { return; }
             
+            const query = { id: user._id };
+
             return throttle(() => management.users.updateAppMetadata(query, user.authz))
                 .catch(err => {
                     // silently skip HTTP 404 errors that happen for fake users
