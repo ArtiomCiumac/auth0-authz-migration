@@ -20,7 +20,7 @@ module.exports = function factory(config) {
                 .catch(err => {
                     // silently skip HTTP 404 errors that happen for fake users
                     if (err.statusCode != 404) {
-                        throw new Error(err);
+                        console.log(err.message);
                     }
                 });
                 
