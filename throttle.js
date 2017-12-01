@@ -1,6 +1,6 @@
 const Promise = require("bluebird");
 
-const MAX_ITERATIONS = 10;
+const MAX_ITERATIONS = 100;
 
 module.exports = function throttle(func) {
     var iteration = 0;
