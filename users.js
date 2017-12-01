@@ -11,12 +11,15 @@ module.exports = function factory(config) {
     });
 
     return {
-        updateUser: function updateUser(user) {
+        updateUser: function updateUser(user, logCallback) {
             if (!user._id || !user._id.length || user._id === "undefined" || /^fake/i.test(user._id)) { return; }
             
             const query = { id: user._id };
 
             return throttle(() => management.users.updateAppMetadata(query, user.authz))
+                .then(() => {
+                    if (logCallback) { logCallback(user._id); }
+                })
                 .catch(err => {
                     // silently skip HTTP 404 errors that happen for fake users
                     if (err.statusCode != 404) {
