@@ -15,7 +15,7 @@ function writeFile(file, data) {
 }
 
 module.exports = function resumeLogFactory(file) {
-    const saveInterval = 10;
+    const saveInterval = 100;
 
     console.log("Loading resume log from " + file);
     return readFile(file)
