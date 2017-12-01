@@ -7,7 +7,7 @@ module.exports = function (config) {
 
     return getData(config("S3_KEY_NEW"))
         .then(data => transform(data)
-            .then(transformedData => Promise.map(transformedData, x => updateUser(x), { concurrency: 1 }))
+            .then(transformedData => Promise.map(transformedData, x => updateUser(x), { concurrency: 8 }))
             .then(() => setData(config("S3_KEY_OLD"), data))
         );
 };

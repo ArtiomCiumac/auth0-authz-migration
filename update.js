@@ -45,7 +45,7 @@ module.exports = function (config) {
         return Promise.resolve(data.oldDataTransformed)
             .then(x => arrayToMap(x))
             .then(x => batchFilter(data.newDataTransformed, i => isNewOrChanged(i, x)))
-            .then(changed => Promise.map(changed, x => updateUser(x), { concurrency: 16 }))
+            .then(changed => Promise.map(changed, x => updateUser(x), { concurrency: 1 }))
             .then(x => x.length)
     }
 
